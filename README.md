@@ -1,2 +1,2 @@
-# check
+# check.sh
 Spellcheck helper tool
