@@ -1,0 +1,2 @@
+# check
+Spellcheck helper tool
