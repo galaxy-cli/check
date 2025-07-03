@@ -4,7 +4,7 @@
 # | (__| | | |  __/ (__|   < _\__ \ | | |
 #  \___|_| |_|\___|\___|_|\_(_)___/_| |_|
 # https://github.com/galaxy-cli/check
-# check.sh - Spellcheck helper tool
+# check.sh - Quickly spell-check and correct text from the terminal with aspell
 
 # `trap` to store temp files
 temp=$(mktemp)
