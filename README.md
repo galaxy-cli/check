@@ -1,3 +1,3 @@
 # USAGE
-* Make script executable `chmod u+x check.sh`
-* Run script with `./check.sh`
+* Use `chmod u+x check.sh` to make the script executable
+* Use `./check.sh` to run script
