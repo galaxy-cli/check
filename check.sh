@@ -6,17 +6,81 @@
 # https://github.com/galaxy-cli/check
 # check.sh - Quickly spell-check and correct text from the terminal with aspell
 
-# `trap` to store temp files
+print_usage() {
+    cat <<EOF
+USAGE
+  ./check.sh		# Spell-checks user input
+  -/check.sh [FILE]	# Spell-checks FILE
+  ./check.sh --clip     # Spell-checks clipboard contents
+  ./check.sh --cursor   # Spell-checks highlight text
+
+FLAGS
+  --clip        Use clipboard to spell check (xsel)
+  --cursor	Uses cursor hightlighted text to spell check
+EOF
+}
+
+# Temp file to store inputs
 temp=$(mktemp)
 
-# User input prompt
-read -r input
+input_from_file() {
+    local file="$1"
+    echo "----- BEFORE -----"
+    cat "$file" > "$temp"
+    cat "$file"
+}
 
-# Stores user input as temp file
-echo "$input" > "$temp"
+input_from_clipboard() {
+        xsel --clipboard > "$temp"
+	if [[ ! -s "$temp" ]]; then
+        	echo "No text found in clipboard."
+        	exit 1
+	fi
+	echo "----- BEFORE -----"
+	xsel --clipboard
+	printf "\n"
 
-# User input is shell checked
+}
+
+input_from_primary() {
+        xsel --primary > "$temp"
+	if [[ ! -s "$temp" ]]; then
+        	echo "No text found in X11 primary selection (highlighted text)."
+        	exit 1
+	fi
+        echo "----- BEFORE -----"
+        xsel --primary
+        printf "\n"
+}
+
+input_from_user() {
+	echo "----- BEFORE -----"
+        read -r user_input
+        echo "$user_input" > "$temp"
+}
+
+case "$1" in
+    --clip)
+        input_from_clipboard
+        ;;
+    --cursor)
+        input_from_primary
+        ;;
+    --help)
+        print_usage
+        exit 0
+        ;;
+    "")
+        input_from_user
+        ;;
+    *)
+        input_from_file "$1"
+        ;;
+esac
+
+# Spell-checks the text
 aspell -c "$temp"
 
-# Prints corrected user input
+# Outputs the corrected input
+echo "----- AFTER ------"
 cat "$temp"
