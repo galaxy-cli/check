@@ -6,6 +6,31 @@
 # https://github.com/galaxy-cli/check
 # check.sh - Quickly spell-check and correct text from the terminal with aspell
 
+# Checks to see if `xsel` is installed
+set -e
+
+check_xsel() {
+    if ! command -v xsel &> /dev/null; then
+        echo "Error: 'xsel' is required but not installed."
+        read -p "Would you like to install it now? (y/n) " answer
+        case "$answer" in
+            y|Y|yes|YES)
+                echo "Attempting to install xsel..."
+                if command -v apt-get &> /dev/null; then
+                    sudo apt-get update && sudo apt-get install -y xsel
+                else
+                    echo "Package manager not detected. Please install 'xsel' manually."
+                    exit 1
+                fi
+                ;;
+            *)
+                echo "xsel is required to run this script. Exiting."
+                exit 1
+                ;;
+        esac
+    fi
+}
+
 print_usage() {
     cat <<EOF
 USAGE
