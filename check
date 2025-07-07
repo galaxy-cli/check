@@ -2,7 +2,7 @@
 #   ___| |__   ___  ___| | __
 #  / __| '_ \ / _ \/ __| |/ /
 # | (__| | | |  __/ (__|   <
-#  \___|_| |_|\___|\___|_|\_
+#  \___|_| |_|\___|\___|_|\_\
 # https://github.com/galaxy-cli/check
 # check - Quickly spell-check and correct text from the terminal with aspell
 
@@ -34,10 +34,10 @@ check_xsel() {
 print_usage() {
     cat <<EOF
 USAGE
-  ./check.sh		# Spell-checks user input
-  -/check.sh [FILE]	# Spell-checks FILE
-  ./check.sh --clip     # Spell-checks clipboard contents
-  ./check.sh --cursor   # Spell-checks highlight text
+  check		   Spell-checks user input
+  check [FILE]	   Spell-checks [FILE]
+  check --clip     Spell-checks clipboard contents
+  check --cursor   Spell-checks highlight text
 
 FLAGS
   --clip        Use clipboard to spell check (xsel)
