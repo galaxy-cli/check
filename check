@@ -34,11 +34,10 @@ check_xsel() {
 print_usage() {
     cat <<EOF
 USAGE
-  check		   Spell-checks user input
-  check [FILE]	   Spell-checks [FILE]
-  check --clip     Spell-checks clipboard contents
-  check --cursor   Spell-checks highlight text
-
+  check
+  check FILE
+  check --clip
+  check --cursor
 FLAGS
   --clip        Use clipboard to spell check (xsel)
   --cursor	Uses cursor hightlighted text to spell check
