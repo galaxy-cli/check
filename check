@@ -3,8 +3,9 @@
 #  / __| '_ \ / _ \/ __| |/ /
 # | (__| | | |  __/ (__|   <
 #  \___|_| |_|\___|\___|_|\_\
-# https://github.com/galaxy-cli/check
 # check - Quickly spell-check and correct text from the terminal with aspell
+# Author: galaxy-cli
+# Project: https://github.com/galaxy-cli/check
 
 # Checks to see if `xsel` is installed
 set -e
