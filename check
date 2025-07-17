@@ -111,5 +111,5 @@ aspell -c "$temp"
 
 # Outputs the corrected input
 echo "----- AFTER ------"
-cat "$temp"
-printf "\n"
+printf "%s" "$(cat "$temp")"
+echo
