@@ -10,27 +10,30 @@
 # Checks to see if `xsel` is installed
 set -e
 
-check_xsel() {
-    if ! command -v xsel &> /dev/null; then
-        echo "Error: 'xsel' is required but not installed."
-        read -p "Would you like to install it now? (y/n) " answer
-        case "$answer" in
-            y|Y|yes|YES)
-                echo "Attempting to install xsel..."
-                if command -v apt-get &> /dev/null; then
-                    sudo apt-get update && sudo apt-get install -y xsel
-                else
-                    echo "Package manager not detected. Please install 'xsel' manually."
-                    exit 1
-                fi
-                ;;
-            *)
-                echo "xsel is required to run this script. Exiting."
-                exit 1
-                ;;
-        esac
+temp=$(mktemp)
+trap 'rm -f "$temp"' EXIT
+
+check_command() {
+    local cmd="$1"
+    local pkg="$2"
+    if ! command -v "$cmd" &> /dev/null; then
+        echo "Error: '$cmd' is required but not installed."
+        if command -v apt-get &> /dev/null; then
+            read -rp "Install $pkg now? (y/n) " ans
+            case "${ans,,}" in
+                y|yes) sudo apt-get update && sudo apt-get install -y "$pkg" ;;
+                *) echo "$cmd is required. Exiting." ; exit 1 ;;
+            esac
+        else
+            echo "Please install '$pkg' manually."
+            exit 1
+        fi
     fi
 }
+
+check_command xsel xsel
+check_command aspell aspell
+
 
 print_usage() {
     cat <<EOF
@@ -47,6 +50,16 @@ EOF
 
 # Temp file to store inputs
 temp=$(mktemp)
+trap 'rm -f "$temp"' EXIT
+
+get_clipboard() {
+	xsel --clipboard
+
+}
+get_primary() {
+        xsel --primary > "$temp"
+
+}
 
 input_from_file() {
     local file="$1"
@@ -56,25 +69,25 @@ input_from_file() {
 }
 
 input_from_clipboard() {
-        xsel --clipboard > "$temp"
+	get_clipboard > "$temp"
 	if [[ ! -s "$temp" ]]; then
         	echo "No text found in clipboard."
         	exit 1
 	fi
 	echo "----- BEFORE -----"
-	xsel --clipboard
+	get_clipboard
 	printf "\n"
 
 }
 
 input_from_primary() {
-        xsel --primary > "$temp"
+	get_primary > "$temp"
 	if [[ ! -s "$temp" ]]; then
         	echo "No text found in X11 primary selection (highlighted text)."
         	exit 1
 	fi
         echo "----- BEFORE -----"
-        xsel --primary
+        get_primary
         printf "\n"
 }
 
