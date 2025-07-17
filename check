@@ -52,15 +52,6 @@ EOF
 temp=$(mktemp)
 trap 'rm -f "$temp"' EXIT
 
-get_clipboard() {
-	xsel --clipboard
-
-}
-get_primary() {
-        xsel --primary > "$temp"
-
-}
-
 input_from_file() {
     local file="$1"
     echo "----- BEFORE -----"
@@ -69,26 +60,25 @@ input_from_file() {
 }
 
 input_from_clipboard() {
-	get_clipboard > "$temp"
+	xsel --clipboard > "$temp"
 	if [[ ! -s "$temp" ]]; then
         	echo "No text found in clipboard."
         	exit 1
 	fi
 	echo "----- BEFORE -----"
-	get_clipboard
-	printf "\n"
-
+	cat "$temp"
+	echo
 }
 
 input_from_primary() {
-	get_primary > "$temp"
+	xsel --primary > "$temp"
 	if [[ ! -s "$temp" ]]; then
         	echo "No text found in X11 primary selection (highlighted text)."
         	exit 1
 	fi
         echo "----- BEFORE -----"
-        get_primary
-        printf "\n"
+        cat "$temp"
+	echo
 }
 
 input_from_user() {
@@ -122,3 +112,4 @@ aspell -c "$temp"
 # Outputs the corrected input
 echo "----- AFTER ------"
 cat "$temp"
+printf "\n"
