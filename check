@@ -102,7 +102,15 @@ case "$1" in
         input_from_user
         ;;
     *)
-        input_from_file "$1"
+        # Check if the argument is a filename that exists
+        if [[ -f "$1" ]]; then
+            input_from_file "$1"
+        else
+            # Treat the argument as direct text input
+            echo "$*" > "$temp"
+            echo "----- BEFORE -----"
+            echo "$*"
+        fi
         ;;
 esac
 
