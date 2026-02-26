@@ -10,7 +10,6 @@
 # Checks to see if `xsel` is installed
 set -e
 
-temp=$(mktemp)
 trap 'rm -f "$temp"' EXIT
 
 check_command() {
