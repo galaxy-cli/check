@@ -19,14 +19,14 @@ for cmd in xsel aspell; do
 done
 
 if [ "${#missing[@]}" -gt 0 ]; then
-    echo "check: error: The following dependencies are missing: ${missing[*]}" >&2
+    echo "check: [!] The following dependencies are missing: ${missing[*]}" >&2
     read -rp "Would you like to install them via apt? [Y/n] " yn
     yn=${yn:-Y}
 
     if [[ $yn =~ ^[Yy]$ ]]; then
         sudo apt update && sudo apt install -y "${missing[@]}"
     else
-        echo "check: error: cannot continue without required dependencies" >&2
+        echo "check: [!] cannot continue without required dependencies" >&2
         exit 1
     fi
 fi
@@ -34,13 +34,23 @@ fi
 # --- USAGE ---
 print_usage() {
     cat <<EOF
+DESCRIPTION
+  check is a terminal spell-checker that uses 'aspell' to interactively 
+  correct text from files, the clipboard, or manual input
+
 USAGE
-  check
-  check FILE
-  check [OPTION]
+  check [OPTION] [FILE | "TEXT"]
+
 OPTION
+  --help        Show this help message
   --clipboard   Use clipboard to spell check (xsel)
-  --cursor      Uses cursor hightlighted text to spell check
+  --cursor      Use cursor highlighted text to spell check (primary selection)
+
+EXAMPLES
+  check                  Manual input mode
+  check file.txt         Check a specific file
+  check "hello wrld"     Check a raw string
+  check --clipboard      Check text currently in your clipboard
 EOF
 }
 
@@ -70,7 +80,7 @@ input_from_file() {
 input_from_clipboard() {
 	xsel --clipboard > "$temp"
 	if [[ ! -s "$temp" ]]; then
-        	echo "No text found in clipboard"
+        	echo "check: [!] No text found in clipboard"
         	exit 1
 	fi
 	echo "----- BEFORE -----"
@@ -82,7 +92,7 @@ input_from_clipboard() {
 input_from_primary() {
 	xsel --primary > "$temp"
 	if [[ ! -s "$temp" ]]; then
-        	echo "check: error: No text found in X11 primary selection (highlighted text)"
+        	echo "check: [!] No text found in X11 primary selection (highlighted text)"
         	exit 1
 	fi
         echo "----- BEFORE -----"
@@ -101,6 +111,11 @@ case "$1" in
         ;;
     --cursor)
         input_from_primary
+        ;;
+    --*)
+        echo "check: [!] Unknown option '$1'" >&2
+        echo "Try 'check --help' for more information." >&2
+        exit 1
         ;;
     "")
         input_from_user
