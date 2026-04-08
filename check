@@ -113,7 +113,6 @@ case "$1" in
         input_from_primary
         ;;
     --*)
-        echo "check: Unknown option '$1'" >&2
         echo "Try 'check --help' for more information." >&2
         exit 1
         ;;
