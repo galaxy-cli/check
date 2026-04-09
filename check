@@ -19,14 +19,14 @@ for cmd in xsel aspell; do
 done
 
 if [ "${#missing[@]}" -gt 0 ]; then
-    echo "check: The following dependencies are missing: ${missing[*]}" >&2
+    echo "The following dependencies are missing: ${missing[*]}" >&2
     read -rp "Would you like to install them via apt? [Y/n] " yn
     yn=${yn:-Y}
 
     if [[ $yn =~ ^[Yy]$ ]]; then
         sudo apt update && sudo apt install -y "${missing[@]}"
     else
-        echo "check: Cannot continue without required dependencies" >&2
+        echo "ERROR - Cannot continue without required dependencies" >&2
         exit 1
     fi
 fi
@@ -80,7 +80,7 @@ input_from_file() {
 input_from_clipboard() {
 	xsel --clipboard > "$temp"
 	if [[ ! -s "$temp" ]]; then
-        	echo "check: No text found in clipboard"
+        	echo "ERROR - No text found in clipboard"
         	exit 1
 	fi
 	echo "----- BEFORE -----"
@@ -92,7 +92,7 @@ input_from_clipboard() {
 input_from_primary() {
 	xsel --primary > "$temp"
 	if [[ ! -s "$temp" ]]; then
-        	echo "check: o text found in X11 primary selection (highlighted text)"
+        	echo "ERROR - o text found in X11 primary selection (highlighted text)"
         	exit 1
 	fi
         echo "----- BEFORE -----"
@@ -113,7 +113,7 @@ case "$1" in
         input_from_primary
         ;;
     --*)
-        echo "Try 'check --help' for more information." >&2
+        echo "Try 'check --help' for more information" >&2
         exit 1
         ;;
     "")
