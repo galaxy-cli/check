@@ -6,9 +6,12 @@
 #   \___|_| |_|\___|\___|_|\_\
 #
 # check - Quickly spell-check and correct text from the terminal with aspell
-# Requirements: 
 #
-# Project: https://github.com/galaxy-cli/check
+# Project: https://github.com
+
+# --- PROGRAM CONFIGURATION ---
+PROGRAM_NAME="${0##*/}"
+VERSION="1.2.1"
 
 # --- DEPENDENCY CHECK ---
 missing=()
@@ -19,118 +22,159 @@ for cmd in xsel aspell; do
 done
 
 if [ "${#missing[@]}" -gt 0 ]; then
-    echo "The following dependencies are missing: ${missing[*]}" >&2
+    echo "${PROGRAM_NAME}: missing required dependencies: ${missing[*]}" >&2
     read -rp "Would you like to install them via apt? [Y/n] " yn
     yn=${yn:-Y}
 
     if [[ $yn =~ ^[Yy]$ ]]; then
         sudo apt update && sudo apt install -y "${missing[@]}"
     else
-        echo "ERROR - Cannot continue without required dependencies" >&2
+        echo "${PROGRAM_NAME}: cannot continue without required dependencies" >&2
         exit 1
     fi
 fi
 
 # --- USAGE ---
-print_usage() {
+usage() {
     cat <<EOF
-DESCRIPTION
-  check is a terminal spell-checker that uses 'aspell' to interactively 
-  correct text from files, the clipboard, or manual input
+Usage: ${PROGRAM_NAME} [OPTION]... [FILE | TEXT]
 
-USAGE
-  check [OPTION] [FILE | "TEXT"]
+Interactively spell-check and correct text using the aspell engine.
 
-OPTION
-  --help        Show this help message
-  --clipboard   Use clipboard to spell check (xsel)
-  --cursor      Use cursor highlighted text to spell check (primary selection)
+Mandatory arguments to long options are mandatory for short options too.
+  -c, --clipboard        spell-check text directly from the system clipboard
+  -f, --file=FILE        spell-check text from specified plaintext FILE
+      --help             display this help and exit
+  -v, --version          output version information and exit
 
-EXAMPLES
-  check                  Manual input mode
-  check file.txt         Check a specific file
-  check "hello wrld"     Check a raw string
-  check --clipboard      Check text currently in your clipboard
+Examples:
+  ${PROGRAM_NAME}                  Launch manual prompt input mode
+  ${PROGRAM_NAME} -f document.txt  Check a specific plaintext file
+  ${PROGRAM_NAME} "hello wrld"     Check a raw text string directly
+  ${PROGRAM_NAME} -c               Check text currently in your clipboard
+
+Report bugs to: <207926666+galaxy-cli@://github.com>
 EOF
 }
 
-temp=$(mktemp)
-trap 'rm -f "$temp"' EXIT
-
-# --- CHECK INPUT ---
-# `check`
-input_from_user() {
-    echo "Enter text (Press Ctrl+D when finished):"
-    echo "----- BEFORE -----"
-    cat > "$temp"
-    if [[ ! -s "$temp" ]] || ! grep -q "[^[:space:]]" "$temp"; then
-        exit 1
-    fi
+# --- VERSION ---
+show_version() {
+    cat <<EOF
+${PROGRAM_NAME} ${VERSION}
+EOF
 }
 
-# `check FILE`
-input_from_file() {
-    local file="$1"
-    echo "----- BEFORE -----"
-    cat "$file" > "$temp"
-    cat "$file"
-}
+# --- INITIALIZE ---
+input_source=""
+file_path=""
+text=""
 
-# `check --clipboard`
-input_from_clipboard() {
-	xsel --clipboard > "$temp"
-	if [[ ! -s "$temp" ]]; then
-        	echo "ERROR - No text found in clipboard"
-        	exit 1
-	fi
-	echo "----- BEFORE -----"
-	cat "$temp"
-	echo
-}
+# --- ARGUMENT PARSING ---
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        -c|--clipboard)
+            [[ -n "$input_source" ]] && { echo "${PROGRAM_NAME}: multiple input sources specified" >&2; exit 1; }
+            input_source="clipboard"
+            shift
+            ;;
+        -f|--file)
+            [[ -n "$input_source" ]] && { echo "${PROGRAM_NAME}: multiple input sources specified" >&2; exit 1; }
+            [[ -z "$2" || "$2" == -* ]] && { echo "${PROGRAM_NAME}: option requires an argument -- 'f'" >&2; exit 1; }
+            input_source="file"
+            file_path="$2"
+            shift 2
+            ;;
+        --help)
+            usage
+            exit 0
+            ;;
+        -v|--version)
+            show_version
+            exit 0
+            ;;
+        -*)
+            echo "${PROGRAM_NAME}: unrecognized option '$1'" >&2
+            echo "Try '${PROGRAM_NAME} --help' for more information" >&2
+            exit 1
+            ;;
+        *)
+            if [[ -n "$input_source" ]]; then
+                echo "${PROGRAM_NAME}: extra operand '$1'" >&2
+                echo "Try '${PROGRAM_NAME} --help' for more information" >&2
+                exit 1
+            fi
+            
+            # Treat all unflagged bare trailing text strictly as a literal text string payload
+            input_source="string"
+            text="$*"
+            set --
+            ;;
+    esac
+done
 
-# `check --cursor`
-input_from_primary() {
-	xsel --primary > "$temp"
-	if [[ ! -s "$temp" ]]; then
-        	echo "ERROR - o text found in X11 primary selection (highlighted text)"
-        	exit 1
-	fi
+# --- INTERACTIVE WORKSPACE CONFIGURATION ---
+temp=$(mktemp /tmp/check_workspace.XXXXXX)
+cleanup() {
+    rm -f "$temp" 2>/dev/null
+}
+trap 'cleanup; exit 0' SIGINT SIGTERM
+trap 'cleanup' EXIT
+
+# --- DATA EXTRACTION & COMPILATION ---
+case "$input_source" in
+    clipboard)
+        xsel -b > "$temp" 2>/dev/null
+        if [[ ! -s "$temp" ]] || ! grep -q "[^[:space:]]" "$temp"; then
+            echo "${PROGRAM_NAME}: clipboard is empty" >&2
+            exit 1
+        fi
         echo "----- BEFORE -----"
         cat "$temp"
-	echo
-}
-
-# --- OPTION ---
-case "$1" in
-    --help)
-        print_usage
-        exit 0
+        echo
         ;;
-    --clipboard)
-        input_from_clipboard
+    file)
+        if [[ ! -e "$file_path" ]]; then
+            echo "${PROGRAM_NAME}: ${file_path}: No such file or directory" >&2
+            exit 1
+        elif [[ ! -f "$file_path" ]]; then
+            echo "${PROGRAM_NAME}: ${file_path}: Not a regular file" >&2
+            exit 1
+        elif [[ ! -r "$file_path" ]]; then
+            echo "${PROGRAM_NAME}: ${file_path}: Permission denied" >&2
+            exit 1
+        elif [[ $(file -b --mime-type "$file_path") != text/* ]]; then
+            echo "${PROGRAM_NAME}: ${file_path}: Not a plaintext file" >&2
+            exit 1
+        fi
+        echo "----- BEFORE -----"
+        cat "$file_path" > "$temp"
+        cat "$temp"
+        echo
         ;;
-    --cursor)
-        input_from_primary
-        ;;
-    --*)
-        echo "Try 'check --help' for more information" >&2
-        exit 1
+    string)
+        if [[ -z "${text//[:space:]/}" ]]; then
+            echo "${PROGRAM_NAME}: input text string is empty" >&2
+            exit 1
+        fi
+        echo "----- BEFORE -----"
+        echo "$text" > "$temp"
+        cat "$temp"
+        echo
         ;;
     "")
-        input_from_user
-        ;;
-    *)
-        if [[ -f "$1" ]]; then
-            input_from_file "$1"
-        else
-            echo "$*" > "$temp"
-            echo "----- BEFORE -----"
-            echo "$*"
+        echo "----- BEFORE -----"
+        read -rp "> " manual_input
+        
+        if [[ -z "${manual_input//[:space:]/}" ]]; then
+            exit 0
         fi
+        echo "$manual_input" > "$temp"
+        echo
         ;;
 esac
 
-# --- CHECK OUTPUT ---
+# --- INTERACTIVE VISUAL SPELL-CHECK RUNTIME ---
 aspell -c "$temp"
+
 echo "----- AFTER ------"
 cat "$temp"
