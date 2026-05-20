@@ -7,11 +7,11 @@
 #
 # check - Quickly spell-check and correct text from the terminal with aspell
 #
-# Project: https://github.com
+# Project: https://github.com/galaxy-cli/check
 
 # --- PROGRAM CONFIGURATION ---
 PROGRAM_NAME="${0##*/}"
-VERSION="1.2.2"
+VERSION="1.2.3"
 
 # --- DEPENDENCY CHECK ---
 missing=()
