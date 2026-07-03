@@ -163,7 +163,7 @@ case "$input_source" in
         ;;
     "")
         echo "----- BEFORE -----"
-        read -rp "> " manual_input
+        read -rp "" manual_input
         
         if [[ -z "${manual_input//[:space:]/}" ]]; then
             exit 0
