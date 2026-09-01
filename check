@@ -11,7 +11,7 @@
 
 # --- PROGRAM CONFIGURATION ---
 PROGRAM_NAME="${0##*/}"
-VERSION="1.2.3"
+VERSION="1.2.4"
 
 # --- DEPENDENCY CHECK ---
 missing=()
@@ -27,7 +27,7 @@ if [ "${#missing[@]}" -gt 0 ]; then
     yn=${yn:-Y}
 
     if [[ $yn =~ ^[Yy]$ ]]; then
-        sudo apt update && sudo apt install -y "${missing[@]}"
+        sudo apt install -y "${missing[@]}"
     else
         echo "${PROGRAM_NAME}: cannot continue without required dependencies" >&2
         exit 1
