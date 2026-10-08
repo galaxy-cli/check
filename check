@@ -11,28 +11,7 @@
 
 # --- PROGRAM CONFIGURATION ---
 PROGRAM_NAME="${0##*/}"
-VERSION="1.2.4"
-
-# --- DEPENDENCY CHECK ---
-missing=()
-for cmd in xsel aspell; do
-    if ! command -v "$cmd" >/dev/null 2>&1; then
-        missing+=("$cmd")
-    fi
-done
-
-if [ "${#missing[@]}" -gt 0 ]; then
-    echo "${PROGRAM_NAME}: missing required dependencies: ${missing[*]}" >&2
-    read -rp "Would you like to install them via apt? [Y/n] " yn
-    yn=${yn:-Y}
-
-    if [[ $yn =~ ^[Yy]$ ]]; then
-        sudo apt install -y "${missing[@]}"
-    else
-        echo "${PROGRAM_NAME}: cannot continue without required dependencies" >&2
-        exit 1
-    fi
-fi
+VERSION="1.3.0"
 
 # --- USAGE ---
 usage() {
@@ -44,6 +23,7 @@ Interactively spell-check and correct text using the aspell engine.
 Mandatory arguments to long options are mandatory for short options too.
   -c, --clipboard        spell-check text directly from the system clipboard
   -f, --file=FILE        spell-check text from specified plaintext FILE
+  -o, --output=DIR       also save the corrected text into DIR (auto-named)
       --help             display this help and exit
   -v, --version          output version information and exit
 
@@ -52,8 +32,9 @@ Examples:
   ${PROGRAM_NAME} -f document.txt  Check a specific plaintext file
   ${PROGRAM_NAME} "hello wrld"     Check a raw text string directly
   ${PROGRAM_NAME} -c               Check text currently in your clipboard
+  ${PROGRAM_NAME} -f notes.txt -o ~/Documents   Check and save the result
 
-Report bugs to: <207926666+galaxy-cli@://github.com>
+Report bugs to: <https://github.com/galaxy-cli/check/issues>
 EOF
 }
 
@@ -64,9 +45,78 @@ ${PROGRAM_NAME} ${VERSION}
 EOF
 }
 
+# --- DEPENDENCY HELPER ---
+# Checked contextually, right before each capability is actually needed
+# (after argument parsing, so --help/--version never trigger a dependency
+# prompt), rather than every command unconditionally at startup.
+check_deps() {
+    local missing=()
+    for cmd in "$@"; do
+        if ! command -v "$cmd" >/dev/null 2>&1; then
+            missing+=("$cmd")
+        fi
+    done
+
+    if [ "${#missing[@]}" -gt 0 ]; then
+        echo "${PROGRAM_NAME}: missing required dependencies: ${missing[*]}" >&2
+        read -rp "Would you like to install them via apt? [Y/n] " yn
+        yn=${yn:-Y}
+
+        if [[ $yn =~ ^[Yy]$ ]]; then
+            sudo apt install -y "${missing[@]}"
+        else
+            echo "${PROGRAM_NAME}: cannot continue without required dependencies" >&2
+            exit 1
+        fi
+    fi
+}
+
+# --- OUTPUT NAMING HELPERS (same convention as ftts) ---
+# Lowercases, collapses whitespace, keeps the first ~6 words, and strips
+# anything that isn't alphanumeric -- used to build a recognizable filename
+# out of clipboard/string/manual input, which has no natural name of its own.
+slugify_prefix() {
+    printf '%s' "$1" \
+        | tr '[:upper:]' '[:lower:]' \
+        | tr -s '[:space:]' ' ' \
+        | cut -d' ' -f1-6 \
+        | sed -E 's/[^a-z0-9]+/-/g; s/^-+//; s/-+$//' \
+        | cut -c1-50
+}
+
+# Computes the final save path inside $output_dir: the source filename for
+# file input (extension preserved as-is), or a content-slug + timestamp
+# with a .txt extension for clipboard/string/manual input. Auto-
+# disambiguates with a numeric suffix instead of silently overwriting an
+# existing file of the same name.
+compute_output_path() {
+    local base=""
+    case "$input_source" in
+        file)
+            base=$(basename "$file_path")
+            ;;
+        *)
+            local slug stamp
+            slug=$(slugify_prefix "$1")
+            stamp=$(date +%Y%m%d-%H%M%S)
+            base="${slug:-check}_${stamp}.txt"
+            ;;
+    esac
+
+    local name="${base%.*}" ext="${base##*.}"
+    local candidate="${output_dir%/}/${base}"
+    local n=2
+    while [[ -e "$candidate" ]]; do
+        candidate="${output_dir%/}/${name}_${n}.${ext}"
+        ((n++))
+    done
+    printf '%s' "$candidate"
+}
+
 # --- INITIALIZE ---
 input_source=""
 file_path=""
+output_dir=""
 text=""
 
 # --- ARGUMENT PARSING ---
@@ -82,6 +132,11 @@ while [[ $# -gt 0 ]]; do
             [[ -z "$2" || "$2" == -* ]] && { echo "${PROGRAM_NAME}: option requires an argument -- 'f'" >&2; exit 1; }
             input_source="file"
             file_path="$2"
+            shift 2
+            ;;
+        -o|--output)
+            [[ -z "$2" || "$2" == -* ]] && { echo "${PROGRAM_NAME}: option requires an argument -- 'o'" >&2; exit 1; }
+            output_dir="$2"
             shift 2
             ;;
         --help)
@@ -103,7 +158,7 @@ while [[ $# -gt 0 ]]; do
                 echo "Try '${PROGRAM_NAME} --help' for more information" >&2
                 exit 1
             fi
-            
+
             # Treat all unflagged bare trailing text strictly as a literal text string payload
             input_source="string"
             text="$*"
@@ -111,6 +166,22 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+# --- CORE DEPENDENCIES ---
+check_deps aspell
+[[ "$input_source" == "clipboard" ]] && check_deps xsel
+[[ "$input_source" == "file" ]] && check_deps file
+
+# --- OUTPUT DIRECTORY VALIDATION ---
+if [[ -n "$output_dir" ]]; then
+    if [[ ! -d "$output_dir" ]]; then
+        echo "${PROGRAM_NAME}: ${output_dir}: No such directory" >&2
+        exit 1
+    elif [[ ! -w "$output_dir" ]]; then
+        echo "${PROGRAM_NAME}: ${output_dir}: Permission denied" >&2
+        exit 1
+    fi
+fi
 
 # --- INTERACTIVE WORKSPACE CONFIGURATION ---
 temp=$(mktemp /tmp/check_workspace.XXXXXX)
@@ -152,7 +223,7 @@ case "$input_source" in
         echo
         ;;
     string)
-        if [[ -z "${text//[:space:]/}" ]]; then
+        if [[ -z "${text//[[:space:]]/}" ]]; then
             echo "${PROGRAM_NAME}: input text string is empty" >&2
             exit 1
         fi
@@ -163,18 +234,29 @@ case "$input_source" in
         ;;
     "")
         echo "----- BEFORE -----"
-        read -rp "" manual_input
-        
-        if [[ -z "${manual_input//[:space:]/}" ]]; then
+        read -r manual_input
+
+        if [[ -z "${manual_input//[[:space:]]/}" ]]; then
             exit 0
         fi
         echo "$manual_input" > "$temp"
-        echo
         ;;
 esac
+
+# Snapshot the pre-correction text now, before aspell edits $temp in place
+# -- needed below for the content-slug filename on non-file input.
+pre_edit_text=$(cat "$temp")
 
 # --- INTERACTIVE VISUAL SPELL-CHECK RUNTIME ---
 aspell -c "$temp"
 
 echo "----- AFTER ------"
 cat "$temp"
+
+# --- SAVE CORRECTED TEXT (if requested) ---
+if [[ -n "$output_dir" ]]; then
+    output_path=$(compute_output_path "$pre_edit_text")
+    cp "$temp" "$output_path"
+    echo
+    echo "${PROGRAM_NAME}: saved corrected text to ${output_path}" >&2
+fi
