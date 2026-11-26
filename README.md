@@ -1,55 +1,100 @@
 # check
 
-A minimalist, interactive CLI spell-checker that uses the `aspell` engine to rapidly check and correct text from terminal strings, files, or your system clipboard.
+Interactively spell-check and correct text from the terminal using `aspell`.
 
-### Prerequisites
+## Features
 
-- **aspell**: The underlying spell-checking utility
-- **xsel**: Required for clipboard support (`-c` flag)
-- **file**: Required for file-type validation (`-f` flag)
+- **Multiple input sources:** Spell-check a single-line prompt (submit with `Enter`), multi-line manual input (`-l` / `--long`, submit with `Ctrl+D`), a literal text argument, a plaintext file (`-f` / `--file`), piped `stdin`, or the system clipboard (`-c` / `--clipboard`).
+- **Clipboard round-trip:** When checking from the clipboard (`-c`), writes the corrected text back to the clipboard automatically.
+- **Optional auto-named output:** Save corrected text into a target directory (`-o` / `--output`) while preserving source filenames for file input or generating collision-safe slug + timestamp names for other inputs.
+- **Contextual dependency checks:** Checks only the tools required for the selected mode (`aspell`, plus `xsel` for clipboard or `file` for file validation).
 
-You don't need to install these up front -- `check` checks for whichever ones a given run actually needs and offers to install them via `apt` on the spot. To install everything ahead of time instead:
+## Requirements
+
+- **Bash** (`#!/usr/bin/env bash`)
+- **`aspell`** (required for all modes)
+- **`xsel`** (required when using `-c` / `--clipboard`)
+- **`file`** (required when using `-f` / `--file`)
+
+On Debian/Ubuntu systems:
+
 ```bash
-sudo apt update && sudo apt install aspell xsel file
+sudo apt install aspell xsel file
 ```
 
-### Installation
+## Installation
 
-Give the script execution permissions and move it into your local binary directory:
+Copy `check` into a directory on your `PATH` and make it executable:
 
 ```bash
 chmod +x check
-mv check ~/.local/bin/          # Or anywhere else in your $PATH
+sudo cp check /usr/local/bin/check
 ```
 
-### Usage
+## Usage
 
-```bash
-check                               # Prompt mode: type text directly and press ENTER
-check "hello wrld"                  # String mode: spell-check literal text characters directly
-check hello.txt                     # String mode: spell-check the literal word "hello.txt"
-check -f hello.txt                  # File mode: extract and spell-check the text inside the file
-check -c                            # Clipboard mode: spell-check text currently in your clipboard
-check -o ~/Documents "hello wrld"   # Spell-check a string and save the corrected result
+```text
+Usage: check [OPTION]... [TEXT]
 ```
-
-> [!NOTE]
-> A bare trailing string absorbs everything after it (so literal text containing dashes doesn't get mistaken for flags). That means flags like `-o` need to come **before** the string, not after -- `check -o ~/Documents "text"` works, `check "text" -o ~/Documents` will swallow `-o ~/Documents` into the text instead.
-
-### Saving corrected text
-
-By default, corrections are shown on screen but not saved anywhere -- once the script exits, they're gone. Add `-o DIR` to also write the corrected result into a directory, auto-named:
-- **File input** reuses the source name, extension included: `check -f notes.txt -o ~/Documents` → `~/Documents/notes.txt`
-- **Clipboard/string/prompt input** has no natural name to borrow, so it's named from a slug of the first few words plus a timestamp: `check "hello wrld" -o ~/Documents` → something like `~/Documents/hello-wrld_20260607-153012.txt`
-
-If a file of that name already exists, a numeric suffix (`_2`, `_3`, ...) is added automatically rather than overwriting it.
 
 ### Options
 
-| Option | Argument | Description |
-| :--- | :---: | :--- |
-| `-c, --clipboard` | None | Spell-check text directly from the system clipboard |
-| `-f, --file`      | `FILE` | Extract and spell-check text from a specified plaintext FILE |
-| `-o, --output`    | `DIR` | Also save the corrected text into DIR (auto-named, see above) |
-| `--help`          | None | Show help message and exit |
-| `-v, --version`   | None | Output version information and exit |
+| Flag | Description |
+| :--- | :--- |
+| `-c`, `--clipboard` | Spell-check text directly from the system clipboard and write the result back |
+| `-f`, `--file=FILE` | Spell-check text from a specified plaintext file |
+| `-l`, `--long` | Use multi-line manual input mode (submit with `Ctrl+D`) |
+| `-o`, `--output=DIR` | Save the corrected text into `DIR` with an automatic filename |
+| `--help` | Display usage information and exit |
+| `-v`, `--version` | Display version information and exit |
+
+### Examples
+
+Single-line manual input (press `Enter` to submit):
+
+```bash
+check
+```
+
+Multi-line manual input (press `Ctrl+D` to submit):
+
+```bash
+check -l
+```
+
+Spell-check a literal string:
+
+```bash
+check "teh quick brwn fox"
+```
+
+Spell-check a file and save the result to a directory:
+
+```bash
+check -f notes.txt -o ~/Documents/corrected
+```
+
+Spell-check from the clipboard:
+
+```bash
+check -c
+```
+
+Spell-check piped `stdin` while keeping interactive `aspell` prompts on `/dev/tty`:
+
+```bash
+printf "recieveing messges\n" | check
+```
+
+## Output Naming & Safety
+
+- Temporary workspaces are created via `mktemp` under `${TMPDIR:-/tmp}` and cleaned up on exit, `SIGINT`, or `SIGTERM`.
+- When `-o` / `--output` is provided:
+  - **File input** reuses the source file's basename.
+  - **Non-file input** builds a slug from the first ~6 words of the pre-edit text plus a `YYYYMMDD-HHMMSS` timestamp and `.txt` extension.
+  - Existing target paths are not overwritten; conflicting names receive a numeric suffix (`_2`, `_3`, and so on).
+
+## License & Project
+
+- **Repository:** <https://github.com/galaxy-cli/check>
+- **Issues:** <https://github.com/galaxy-cli/check/issues>
